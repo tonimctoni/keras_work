@@ -196,26 +196,32 @@
 
 import numpy as np
 from keras import Sequential
-# from keras.models import Model
-from keras.layers import LSTM,Dense,RepeatVector
-# from keras.optimizers import SGD
-# from keras.callbacks import TensorBoard
-# from keras import backend as K
-# import matplotlib
-# matplotlib.use('Agg')
-# import matplotlib.pyplot as plt
+from keras.layers import LSTM,Dense
+from keras.optimizers import SGD
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from keras import backend as K
+import copy
 
 
-
-def print_steps_max(X, characters):
-    chars=map(lambda x: characters[np.argmax(x)], X)
+def print_steps_max(X, model, characters, length=32):
+    X=copy.deepcopy(X[0:1])
+    steps_num=X.shape[1]
+    chars=list(map(lambda x: characters[np.argmax(x)], X[0]))
+    chars.extend["[", "-", "-", "]"]
+    for i in range(length):
+        pred=model.predict(X)[0][-1]
+        new_char=characters[np.argmax(pred)]
+        chars.append(new_char)
+        X[0]=np.concatenate((X[0][1:], np.zeros((1, len(characters)), dtype=np.float32)), axis=0)
+        X[0][-1][characters.index(new_char)]=1
     print ("".join(chars))
 
 def print_steps_probabilistic(X):
     pass
 
-def get_bookXYchars(filename="prince.txt", training_proportion=.9, offset=0, steps_num=100, characters=None): #279219 #9280812
+def get_bookXYchars(filename="prince.txt", training_proportion=.9, offset=0, steps_num=100, characters=None):
     assert(training_proportion>0. and training_proportion<=1.0)
     with open(filename) as f:
         f.seek(offset)
@@ -226,17 +232,18 @@ def get_bookXYchars(filename="prince.txt", training_proportion=.9, offset=0, ste
         characters="".join(characters)
 
     def get_xy(book):
-        x=np.zeros((len(book)/steps_num, steps_num, len(characters)), dtype=np.float32)
-        for pos in xrange(0, len(book)/steps_num):
-            for step in xrange(steps_num):
+        book=book+" "
+        x=np.zeros((len(book)//steps_num, steps_num, len(characters)), dtype=np.float32)
+        y=np.zeros((len(book)//steps_num, steps_num, len(characters)), dtype=np.float32)
+        for pos in range(0, len(book)//steps_num):
+            for step in range(steps_num):
                 x[pos, step, characters.index(book[pos*(steps_num)+step])]=1
-        y=x[1:,:,:]
-        x=x[:-1,:,:]
+                y[pos, step, characters.index(book[pos*(steps_num)+step+1])]=1
         return (x,y)
     return get_xy(book[:int(len(book)*training_proportion)]), get_xy(book[int(len(book)*training_proportion):]), characters
 
 filename="prince.txt"
-steps_num=10
+steps_num=40
 with open(filename) as f:
     book=f.read()
 characters=sorted(list(set(book)))
@@ -250,18 +257,26 @@ get_XYc=lambda offset: get_bookXYchars(filename="prince.txt", training_proportio
 
 
 model=Sequential()
-model.add(LSTM(80, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=.0, activation="tanh")) # maybe use elu?
-model.add(LSTM(80, input_shape=(steps_num, len(characters)), dropout=.0, activation="tanh")) # maybe use elu?
-model.add(RepeatVector(steps_num))
-model.add(LSTM(80, input_shape=(80, steps_num), return_sequences=True, dropout=.0, activation="tanh"))
+model.add(LSTM(80, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=.0, activation="tanh")) # maybe use elu? and dropout?
+model.add(LSTM(80, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=.0, activation="tanh")) # maybe use elu? and dropout?
 model.add(Dense(len(characters), activation="softmax"))
 
-model.compile(loss='categorical_crossentropy', optimizer="sgd")
+model.compile(loss='categorical_crossentropy', optimizer=SGD(momentum=.99, nesterov=True, decay=0.0001, lr=0.05))
 model.summary()
 
+losses=list()
+validation_losses=list()
 K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=16, inter_op_parallelism_threads=16)))
-for iteration in range(60):
+for iteration in range(80):
     ((X,Y), (Xval, Yval), _)=get_XYc(iteration)
-    model.fit(X, Y, validation_data=(Xval, Yval), batch_size=10, epochs=1, verbose=1)
-    pred=model.predict(X[0:1])
-    print_steps_max(pred[0], characters)
+    hist=model.fit(X, Y, validation_data=(Xval, Yval), batch_size=20, epochs=2, verbose=1) # more epochs?
+    losses.extend(hist.history["loss"])
+    validation_losses.extend(hist.history["val_loss"])
+    print_steps_max(X, model, characters)
+
+plt.plot(np.arange(len(losses)), np.array(losses), "g", label="training")
+plt.plot(np.arange(len(validation_losses)), np.array(validation_losses), "b", label="validation")
+x1,x2,y1,y2 = plt.axis()
+plt.axis((x1,x2,0,4))
+plt.legend()
+plt.savefig("plot.png")
