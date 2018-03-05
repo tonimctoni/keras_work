@@ -1,4 +1,4 @@
-import numpy as np
+# import numpy as np
 # from keras import Sequential
 # from keras.models import Model
 # from keras.layers import LSTM,Dense,TimeDistributed,Input,Dropout
@@ -194,25 +194,36 @@ import numpy as np
 
 
 
-
+import numpy as np
+from keras import Sequential
+# from keras.models import Model
+from keras.layers import LSTM,Dense,RepeatVector
+# from keras.optimizers import SGD
+# from keras.callbacks import TensorBoard
+# from keras import backend as K
+# import matplotlib
+# matplotlib.use('Agg')
+# import matplotlib.pyplot as plt
+from keras import backend as K
 
 
 
 def print_steps_max(X, characters):
     chars=map(lambda x: characters[np.argmax(x)], X)
-    print "".join(chars)
+    print ("".join(chars))
 
 def print_steps_probabilistic(X):
     pass
 
-def get_bookXYchars(filename="prince.txt", training_proportion=.9, offset=0, steps_num=100): #279219 #9280812
+def get_bookXYchars(filename="prince.txt", training_proportion=.9, offset=0, steps_num=100, characters=None): #279219 #9280812
     assert(training_proportion>0. and training_proportion<=1.0)
     with open(filename) as f:
         f.seek(offset)
         book=f.read()
 
-    characters=sorted(list(set(book)))
-    characters="".join(characters)
+    if characters is None:
+        characters=sorted(list(set(book)))
+        characters="".join(characters)
 
     def get_xy(book):
         x=np.zeros((len(book)/steps_num, steps_num, len(characters)), dtype=np.float32)
@@ -222,10 +233,35 @@ def get_bookXYchars(filename="prince.txt", training_proportion=.9, offset=0, ste
         y=x[1:,:,:]
         x=x[:-1,:,:]
         return (x,y)
-
     return get_xy(book[:int(len(book)*training_proportion)]), get_xy(book[int(len(book)*training_proportion):]), characters
 
-((X,Y), (Xval, Yval), characters)=get_bookXYchars()
-print X.shape, Y.shape, Xval.shape, Yval.shape
-print np.prod(X.shape)*(32/8)/1024/1024, "MB"
-print_steps_max(X[0], characters)
+filename="prince.txt"
+steps_num=10
+with open(filename) as f:
+    book=f.read()
+characters=sorted(list(set(book)))
+characters="".join(characters)
+
+get_XYc=lambda offset: get_bookXYchars(filename="prince.txt", training_proportion=.85, steps_num=steps_num, offset=offset, characters=characters)
+# ((X,Y), (Xval, Yval), _)=get_XYc(0)
+# print (X.shape, Y.shape, Xval.shape, Yval.shape)
+# print (np.prod(X.shape)*(32/8)/1024/1024, "MB")
+# print_steps_max(X[0], characters)
+
+
+model=Sequential()
+model.add(LSTM(80, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=.0, activation="tanh")) # maybe use elu?
+model.add(LSTM(80, input_shape=(steps_num, len(characters)), dropout=.0, activation="tanh")) # maybe use elu?
+model.add(RepeatVector(steps_num))
+model.add(LSTM(80, input_shape=(80, steps_num), return_sequences=True, dropout=.0, activation="tanh"))
+model.add(Dense(len(characters), activation="softmax"))
+
+model.compile(loss='categorical_crossentropy', optimizer="sgd")
+model.summary()
+
+K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=16, inter_op_parallelism_threads=16)))
+for iteration in range(60):
+    ((X,Y), (Xval, Yval), _)=get_XYc(iteration)
+    model.fit(X, Y, validation_data=(Xval, Yval), batch_size=10, epochs=1, verbose=1)
+    pred=model.predict(X[0:1])
+    print_steps_max(pred[0], characters)
