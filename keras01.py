@@ -209,7 +209,7 @@ def print_steps_max(X, model, characters, length=32):
     X=copy.deepcopy(X[0:1])
     steps_num=X.shape[1]
     chars=list(map(lambda x: characters[np.argmax(x)], X[0]))
-    chars.extend["[", "-", "-", "]"]
+    chars.extend(["[", "-", "-", "]"])
     for i in range(length):
         pred=model.predict(X)[0][-1]
         new_char=characters[np.argmax(pred)]
