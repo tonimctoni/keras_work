@@ -232,10 +232,11 @@ def get_bookXYchars(filename="prince.txt", training_proportion=.9, offset=0, ste
         characters="".join(characters)
 
     def get_xy(book):
+        len_book=len(book)
         book=book+" "
-        x=np.zeros((len(book)//steps_num, steps_num, len(characters)), dtype=np.float32)
-        y=np.zeros((len(book)//steps_num, steps_num, len(characters)), dtype=np.float32)
-        for pos in range(0, len(book)//steps_num):
+        x=np.zeros((len_book//steps_num, steps_num, len(characters)), dtype=np.float32)
+        y=np.zeros((len_book//steps_num, steps_num, len(characters)), dtype=np.float32)
+        for pos in range(0, len_book//steps_num):
             for step in range(steps_num):
                 x[pos, step, characters.index(book[pos*(steps_num)+step])]=1
                 y[pos, step, characters.index(book[pos*(steps_num)+step+1])]=1
