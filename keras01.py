@@ -29,6 +29,7 @@ def pick_index_from_distribution(dist):
         s+=p
         if s>r:
             return i
+    print ("ERROR: pick_index_from_distribution, s=%f", s)
     return len(dist)-1
 
 def print_steps_probabilistic(X, model, characters, length=32):
@@ -74,14 +75,10 @@ characters=sorted(list(set(book)))
 characters="".join(characters)
 
 get_XYc=lambda offset: get_bookXYchars(filename="prince.txt", training_proportion=.85, steps_num=steps_num, offset=offset, characters=characters)
-# ((X,Y), (Xval, Yval), _)=get_XYc(0)
-# print (X.shape, Y.shape, Xval.shape, Yval.shape)
-# print (np.prod(X.shape)*(32/8)/1024/1024, "MB")
-# print_steps_max(X[0], characters)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--activation", type=str, default="linear")
-parser.add_argument("--dropout", type=float, default=.2)
+parser.add_argument("--dropout", type=float, default=.0)
 parser.add_argument("--iterations", type=int, default=40)
 parser.add_argument("--epochs", type=int, default=2)
 parser.add_argument("--lstm_units", type=int, default=80)
@@ -93,12 +90,12 @@ model.add(LSTM(args.lstm_units, input_shape=(steps_num, len(characters)), return
 model.add(LSTM(args.lstm_units, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=args.dropout, activation=args.activation)) # maybe use elu? and dropout?
 model.add(Dense(len(characters), activation="softmax"))
 
-model.compile(loss='categorical_crossentropy', optimizer=SGD(momentum=.99, nesterov=True, decay=0.0001, lr=0.05))
+model.compile(loss='categorical_crossentropy', "adam") # optimizer=SGD(momentum=.99, nesterov=True, decay=0.0001, lr=0.05)
 model.summary()
 
 losses=list()
 validation_losses=list()
-K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=16, inter_op_parallelism_threads=16)))
+#K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=16, inter_op_parallelism_threads=16)))
 for iteration in range(args.iterations):
     ((X,Y), (Xval, Yval), _)=get_XYc(iteration)
     hist=model.fit(X, Y, validation_data=(Xval, Yval), batch_size=20, epochs=args.epochs, verbose=0) # more epochs?
@@ -121,12 +118,3 @@ plt.savefig("plot_%s.png"%str(args))
 # kernel: derivative of context_switches and interrupts
 # mem: cached, used
 # processes: running
-
-
-
-
-
-
-
-
-
