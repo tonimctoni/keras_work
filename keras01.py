@@ -1,6 +1,7 @@
 import numpy as np
 from keras import Sequential
-from keras.layers import LSTM,Dense
+from keras.models import Model
+from keras.layers import Input,LSTM,Dense
 from keras.optimizers import SGD
 import matplotlib
 matplotlib.use('Agg')
@@ -80,17 +81,25 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--activation", type=str, default="linear")
 parser.add_argument("--dropout", type=float, default=.0)
 parser.add_argument("--iterations", type=int, default=40)
-parser.add_argument("--epochs", type=int, default=2)
+parser.add_argument("--epochs", type=int, default=1)
 parser.add_argument("--lstm_units", type=int, default=80)
+parser.add_argument("--keep_state", type=int, default=0)
 args=parser.parse_args()
 print(args)
 
-model=Sequential()
-model.add(LSTM(args.lstm_units, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=args.dropout, activation=args.activation)) # maybe use elu? and dropout?
-model.add(LSTM(args.lstm_units, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=args.dropout, activation=args.activation)) # maybe use elu? and dropout?
-model.add(Dense(len(characters), activation="softmax"))
+if args.keep_state:
+    x=Input(shape=(steps_num, len(characters)))
+    y, state_h, state_c=LSTM(args.lstm_units, input_shape=(steps_num, len(characters)), return_sequences=True, return_state=True, dropout=args.dropout, activation=args.activation)(x)
+    y=LSTM(args.lstm_units, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=args.dropout, activation=args.activation)(y, initial_state=(state_h,state_c))
+    y=Dense(len(characters), activation="softmax")(y)
+    model=Model(inputs=x, outputs=y)
+else:
+    model=Sequential()
+    model.add(LSTM(args.lstm_units, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=args.dropout, activation=args.activation))
+    model.add(LSTM(args.lstm_units, input_shape=(steps_num, len(characters)), return_sequences=True, dropout=args.dropout, activation=args.activation))
+    model.add(Dense(len(characters), activation="softmax"))
 
-model.compile(loss='categorical_crossentropy', "adam") # optimizer=SGD(momentum=.99, nesterov=True, decay=0.0001, lr=0.05)
+model.compile(loss='categorical_crossentropy', optimizer="adam") # optimizer=SGD(momentum=.99, nesterov=True, decay=0.0001, lr=0.05)
 model.summary()
 
 losses=list()
