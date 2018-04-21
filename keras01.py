@@ -2,7 +2,7 @@ import numpy as np
 from keras import Sequential
 from keras.models import Model
 from keras.layers import Input,LSTM,Dense
-from keras.optimizers import SGD
+# from keras.optimizers import SGD
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
