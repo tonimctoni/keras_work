@@ -3,7 +3,7 @@ from keras import Sequential
 from keras.layers import LSTM,Dense
 from keras.models import Model
 from keras.layers import Input
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 def get_book(filename):
     with open(filename) as f:
@@ -40,12 +40,12 @@ model.compile(loss='categorical_crossentropy', optimizer="adam")
 hist=model.fit(X, Y, validation_data=(Xval, Yval), batch_size=20, epochs=8, verbose=1)
 losses=hist.history["loss"]
 val_losses=hist.history["val_loss"]
-plt.plot(np.arange(len(losses)), losses, "g", label="training")
-plt.plot(np.arange(len(val_losses)), val_losses, "b", label="validation")
-x1,x2,y1,y2 = plt.axis()
-plt.axis((x1,x2,0,2.5))
-plt.legend()
-plt.savefig("le_plot.png")
+# plt.plot(np.arange(len(losses)), losses, "g", label="training")
+# plt.plot(np.arange(len(val_losses)), val_losses, "b", label="validation")
+# x1,x2,y1,y2 = plt.axis()
+# plt.axis((x1,x2,0,2.5))
+# plt.legend()
+# plt.savefig("le_plot.png")
 print(losses)
 print(val_losses)
 print(np.mean(np.array(val_losses[-3:])))
